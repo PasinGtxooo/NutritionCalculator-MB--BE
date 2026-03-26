@@ -5,8 +5,10 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,20 @@ import jakarta.annotation.PostConstruct;
 public class NutritionDataService {
 
     private List<Map<String, String>> foodData = new ArrayList<>();
+
+    // วัตถุดิบที่มีแคลอรีเป็น 0 หรือใกล้ 0 — ข้ามการค้นหาใน DB เพื่อป้องกัน match ผิด
+    private static final Set<String> ZERO_CALORIE_INGREDIENTS = new HashSet<>();
+    static {
+        ZERO_CALORIE_INGREDIENTS.add("น้ำ");
+        ZERO_CALORIE_INGREDIENTS.add("น้ำเปล่า");
+        ZERO_CALORIE_INGREDIENTS.add("น้ำสะอาด");
+        ZERO_CALORIE_INGREDIENTS.add("น้ำดื่ม");
+        ZERO_CALORIE_INGREDIENTS.add("น้ำซุป");
+        ZERO_CALORIE_INGREDIENTS.add("น้ำต้มสุก");
+        ZERO_CALORIE_INGREDIENTS.add("water");
+        ZERO_CALORIE_INGREDIENTS.add("broth");
+        ZERO_CALORIE_INGREDIENTS.add("stock");
+    }
 
     // Mapping ชื่อ ingredient ทั่วไป → ชื่อใน CSV
     private static final Map<String, String> INGREDIENT_ALIASES = new HashMap<>();
@@ -212,6 +228,14 @@ public class NutritionDataService {
         }
 
         String searchName = foodName.toLowerCase().trim();
+
+        // ข้ามวัตถุดิบที่มีแคลอรี 0 — ป้องกัน match ผิด (เช่น น้ำ → น้ำตาล, น้ำ,ซุปหมู → pork ground)
+        for (String zeroCalKey : ZERO_CALORIE_INGREDIENTS) {
+            if (searchName.equals(zeroCalKey) || searchName.startsWith(zeroCalKey + ",") || searchName.startsWith(zeroCalKey + " ")) {
+                return null;
+            }
+        }
+
         Map<String, String> bestMatch = null;
         int bestScore = 0;
         String matchType = "none";
@@ -443,8 +467,17 @@ public class NutritionDataService {
                 amount = ((Number) ingredient.get("amount")).doubleValue();
             }
 
-            // ใช้ alias mapping ก่อนค้นหา
-            String resolvedName = INGREDIENT_ALIASES.getOrDefault(name, name);
+            // ใช้ alias mapping ก่อนค้นหา (เช็ค exact ก่อน ถ้าไม่เจอ เช็คว่าชื่อ ingredient มี alias key อยู่ด้วยไหม)
+            String resolvedName = INGREDIENT_ALIASES.getOrDefault(name, null);
+            if (resolvedName == null) {
+                for (Map.Entry<String, String> entry : INGREDIENT_ALIASES.entrySet()) {
+                    if (name != null && name.contains(entry.getKey())) {
+                        resolvedName = entry.getValue();
+                        break;
+                    }
+                }
+                if (resolvedName == null) resolvedName = name;
+            }
             String resolvedNameEn = INGREDIENT_ALIASES.getOrDefault(nameEn, nameEn);
 
             // ค้นหา ingredient ใน CSV

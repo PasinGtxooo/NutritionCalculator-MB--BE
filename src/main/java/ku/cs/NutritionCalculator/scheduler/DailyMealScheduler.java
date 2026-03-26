@@ -138,7 +138,8 @@ public class DailyMealScheduler {
                 food.setAi(aiResult);
                 food.setDish(1);
                 food.setDatetimeFood(LocalDateTime.now());
-                foodService.createFood(food);
+                Food_Logging saved = foodService.createFood(food);
+                foodService.runAndSaveWeeklyAnalysis(saved, user);
                 System.out.println("[MealScheduler] Analyzed & saved Food_Logging for: " + foodName);
             } catch (Exception e) {
                 System.err.println("[MealScheduler] Failed to analyze food: " + foodName + " - " + e.getMessage());

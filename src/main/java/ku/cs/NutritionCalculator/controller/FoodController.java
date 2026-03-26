@@ -91,7 +91,7 @@ public class FoodController {
             System.out.println("Saved with ID: " + saved.getId());
 
             // รัน weekly analysis แล้วเก็บลง f_weekly ของ food ตัวนี้
-            runAndSaveWeeklyAnalysis(saved, user);
+            foodService.runAndSaveWeeklyAnalysis(saved, user);
 
             return ResponseEntity.ok(new ApiResponse<>(true, "วิเคราะห์และบันทึกสำเร็จ", saved));
 
@@ -209,7 +209,7 @@ public class FoodController {
             System.out.println("Saved with ID: " + saved.getId());
 
             // รัน weekly analysis แล้วเก็บลง f_weekly ของ food ตัวนี้
-            runAndSaveWeeklyAnalysis(saved, user);
+            foodService.runAndSaveWeeklyAnalysis(saved, user);
 
             return ResponseEntity.ok(new ApiResponse<>(true, "วิเคราะห์และบันทึกสำเร็จ", saved));
 
@@ -281,28 +281,6 @@ public class FoodController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "วิเคราะห์รายสัปดาห์ไม่สำเร็จ: " + e.getMessage(), null));
-        }
-    }
-
-    /**
-     * รัน weekly analysis แล้วเก็บผลลง f_weekly ของ food ตัวที่เพิ่งบันทึก
-     */
-    private void runAndSaveWeeklyAnalysis(Food_Logging savedFood, User user) {
-        try {
-            LocalDateTime end = LocalDateTime.now();
-            LocalDateTime start = end.minusDays(7);
-
-            List<Food_Logging> weeklyFoods = foodRepository
-                    .findByUserAndDatetimeFoodBetweenOrderByDatetimeFoodAsc(user, start, end);
-
-            if (!weeklyFoods.isEmpty()) {
-                String analysis = foodAiService.analyzeWeeklyFood(user, weeklyFoods);
-                savedFood.setWeekly(analysis);
-                foodRepository.save(savedFood);
-                System.out.println("Weekly analysis saved to food: " + savedFood.getId());
-            }
-        } catch (Exception e) {
-            System.err.println("Weekly analysis failed (non-blocking): " + e.getMessage());
         }
     }
 
